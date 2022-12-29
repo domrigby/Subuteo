@@ -137,6 +137,8 @@ def checkGoal(ballPos,score,goalWidth,pitchWidth,pitchHeight):
 
 def main():
 
+    #set up
+
     score = [0,0]
 
     pitchHeight = 900
