@@ -8,7 +8,7 @@ class Arrow():
         self.arrowShape = [[0, 100], [0, 200], [200, 200], [200, 300], [300, 150], [200, 0], [200, 100]]
 
         for i in range(len(self.arrowShape)):
-            self.arrowShape[i][1] = (self.arrowShape[i][1]-150)*0.5
+            self.arrowShape[i][1] = (self.arrowShape[i][1]-150)*0.25
 
     def plot(self,angle,length,vec):
 

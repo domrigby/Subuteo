@@ -2,6 +2,8 @@ import pygame
 import numpy as np
 import numpy.linalg as la
 
+import time
+
 class Player():
 
     def __init__(self,screen,team,spawnPos,time):
@@ -53,6 +55,7 @@ class Player():
             return False
     
     def addVel(self,vel):
+        self.lastUpdateTime = time.perf_counter()
         self.vel = np.add(self.vel,np.array(vel))
 
     def reset(self):

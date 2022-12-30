@@ -10,6 +10,7 @@ from menu import GameMenu
 from arrow import Arrow
 from ball import Ball
 from textBox import TextBox
+from AI import AIPlayer
 
 from typing import List
 import time
@@ -63,9 +64,7 @@ def calculateDistances(player,otherPlayers):
         distVec = otherPlayer.pos - player.pos
         
         if la.norm(distVec) < 2*player.size and la.norm(distVec) > 0:
-            print(np.dot(player.vel,distVec))
             if np.dot(player.vel,distVec) > 0.1: # make sure ball is still travelling towards eachother, not perform calc again
-                print("Vel before: ",player.vel)
                 # switch to collision space
                 distVecUnit = distVec/la.norm(distVec)
                 velParalellToCollis = np.dot(distVecUnit,player.vel) # velocity in direction of collision
@@ -79,20 +78,12 @@ def calculateDistances(player,otherPlayers):
                 xInColFrame = [np.dot([1,0],distVecUnit),np.dot([1,0],perpVec)]
                 yInColFrame = [np.dot([0,1],distVecUnit),np.dot([0,1],perpVec)]
 
-                print("x :",xInColFrame)
-                print("y: ",yInColFrame)
-
                 firstBallVel = [np.dot(xInColFrame,firstBallVelColFrame), np.dot(yInColFrame,firstBallVelColFrame)]
                 secondBallVel = [np.dot(xInColFrame,secondBallVelColFrame), np.dot(yInColFrame,secondBallVelColFrame)]
-
-                print("Ball 1: ",firstBallVel)
-                print("Ball 2: ",secondBallVel)
 
                 player.vel = firstBallVel
                 otherPlayer.vel = secondBallVel
                 otherPlayer.lastUpdateTime = time.perf_counter()
-
-
 
 
 def checkHits(playersMoving,team1,team2,ball):
@@ -109,10 +100,12 @@ def checkHits(playersMoving,team1,team2,ball):
 def checkMoving(movingList,itemList):
 
     for player in itemList:
-        if la.norm(player.vel) > 0.1:
+        if la.norm(player.vel) > 25:
             player.updateState(time.perf_counter()-player.lastUpdateTime)
             player.lastUpdateTime = time.perf_counter()
             movingList.append(player)
+        else:
+            player.vel = np.array([0,0])
 
     return movingList
 
@@ -135,10 +128,20 @@ def checkGoal(ballPos,score,goalWidth,pitchWidth,pitchHeight):
 
     return score, goal, team
 
+
+def drawEverything(pitch,ball,team1,team2):
+    pitch.drawPitch()
+    ball.drawBall()
+
+    for player in team1:
+        player.drawPlayer()
+
+    for player in team2:
+        player.drawPlayer()
+
 def main():
 
-    #set up
-
+    ## SET UP
     score = [0,0]
 
     pitchHeight = 900
@@ -163,59 +166,78 @@ def main():
     team1 = spawnTeams(1,"red",screen,pitch,params.playersNum,None)
     team2 = spawnTeams(2,"blue",screen,pitch,params.playersNum,team1)
 
+    if params.onePlayerOn:
+        team2AI = AIPlayer(team2,pitch)
+
     player1Go = True
     mouseDown = False
 
+    playersMoving= []
+
     while True:
-        pitch.drawPitch()
-        ball.drawBall()
+        ## DRAWING
+        drawEverything(pitch,ball,team1,team2)
 
-        for player in team1:
-            player.drawPlayer()
+        ## PLAYER OR AI INPUT
+        if len(playersMoving) == 0: # checks everything hass stopped moving before next turn
+            if player1Go or not params.onePlayerOn: # if its players ones go or its a two player game... enter human mode
 
-        for player in team2:
-            player.drawPlayer()
+                for event in pygame.event.get():
+                    if event.type == pygame.MOUSEBUTTONDOWN:
+                        mouse_presses = pygame.mouse.get_pressed()
 
+                        if mouse_presses[0]:
+                            mousePos = pygame.mouse.get_pos()
 
-        for event in pygame.event.get():
-            if event.type == pygame.MOUSEBUTTONDOWN:
-                mouse_presses = pygame.mouse.get_pressed()
-
-                if mouse_presses[0]:
-                    mousePos = pygame.mouse.get_pos()
-
-                    if player1Go:
-                        for player in team1:
-                            if player.checkClick(mousePos):
-                                mouseDown = True
-                                clickedPlayer = player
-                                origPos = np.array(mousePos)
-                    else:
-                        for player in team2:
-                            if player.checkClick(mousePos):
-                                mouseDown = True
-                                clickedPlayer = player
-                                origPos = np.array(mousePos)
+                            if player1Go:
+                                for player in team1:
+                                    if player.checkClick(mousePos):
+                                        mouseDown = True
+                                        clickedPlayer = player
+                                        origPos = np.array(mousePos)
+                            else:
+                                for player in team2:
+                                    if player.checkClick(mousePos):
+                                        mouseDown = True
+                                        clickedPlayer = player
+                                        origPos = np.array(mousePos)
 
 
 
-            elif event.type == pygame.MOUSEBUTTONUP and mouseDown == True:
-                mouseDown = False
-                endPos = np.array(pygame.mouse.get_pos())
-                velVec = (origPos - endPos)*10
-                clickedPlayer.addVel(velVec) # add functions to player so they can have a velocity
-                clickedPlayer.lastUpdateTime = time.perf_counter()
-            
+                    elif event.type == pygame.MOUSEBUTTONUP and mouseDown == True:
+                        mouseDown = False
+                        endPos = np.array(pygame.mouse.get_pos())
+                        velVec = (origPos - endPos)*10
+                        clickedPlayer.addVel(velVec) # add functions to player so they can have a velocity
+                        clickedPlayer.lastUpdateTime = time.perf_counter()
+                    
 
-                if player1Go == True:
-                    player1Go = False
-                else:
-                    player1Go = True
+                        if player1Go == True:
+                            player1Go = False
+                        else:
+                            player1Go = True
 
-        if mouseDown == True:
-            newPos = np.array(pygame.mouse.get_pos())
-            mouseVec = newPos-origPos
-            pygame.draw.polygon(screen, (255, 0, 0), arrow.plot(np.arctan2(mouseVec[1],mouseVec[0])+math.pi,la.norm(mouseVec),origPos))
+                if mouseDown == True:
+                    newPos = np.array(pygame.mouse.get_pos())
+                    mouseVec = newPos-origPos
+                    pygame.draw.polygon(screen, (255, 0, 0), arrow.plot(np.arctan2(mouseVec[1],mouseVec[0])+math.pi,la.norm(mouseVec),clickedPlayer.pos))
+
+            else: # if its single player and AIs turn
+                bestPlayer, shot = team2AI.makeMove(ball)
+
+                sizeArrowToDraw = np.linspace(0,la.norm(shot)/2,10)
+
+                for sizeArrow in sizeArrowToDraw:
+                    drawEverything(pitch,ball,team1,team2)
+                    pygame.draw.polygon(screen, (255, 0, 0), arrow.plot(np.arctan2(shot[1],shot[0]),sizeArrow,bestPlayer.pos))
+                    pygame.time.delay(100)
+                    pygame.display.update()
+
+                bestPlayer.addVel(shot)
+                player1Go = True
+
+
+        ## GAME LOGIC
         
         playersMoving = [] # players moving is a list of chips which are moving around, as we only have to check them for collisions
 
